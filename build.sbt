@@ -11,8 +11,20 @@ resolvers ++= Seq(
 )
 
 val sparkVersion = "2.2.0"
-libraryDependencies ++= Seq(
+val commonLibs = Seq(
   "org.apache.spark" %% "spark-core" % sparkVersion,
   "org.apache.spark" %% "spark-sql" % sparkVersion,
   "org.apache.spark" %% "spark-mllib" % sparkVersion
 )
+
+lazy val root = (project in file("."))
+  .aggregate(common)
+  .dependsOn(common)
+  .settings(
+    libraryDependencies ++= commonLibs
+  )
+
+lazy val common = project
+  .settings(
+    libraryDependencies ++= commonLibs
+  )
