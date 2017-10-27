@@ -7,10 +7,16 @@ import org.apache.spark.ml.feature.ChiSqSelector
 import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
 import org.apache.spark.mllib.evaluation.MulticlassMetrics
 import org.apache.spark.sql.SparkSession.Builder
+import org.apache.log4j.Logger
+import org.apache.log4j.Level
+
+
 
 class Sandbox extends BernadsApp {
 
   override def configure(builder: Builder): Builder = {
+    Logger.getLogger("org").setLevel(Level.OFF)
+    Logger.getLogger("akka").setLevel(Level.OFF)
     builder.master("local[*]").config("spark.executor.memory", "15g")
   }
 
