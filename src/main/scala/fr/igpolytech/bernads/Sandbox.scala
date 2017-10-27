@@ -1,7 +1,7 @@
 package fr.igpolytech.bernads
 
 import fr.igpolytech.bernads.runtime.{BernadsApp, BernadsDataCleaner}
-import org.apache.spark.ml.classification.{DecisionTreeClassificationModel, DecisionTreeClassifier}
+import org.apache.spark.ml.classification.{DecisionTreeClassificationModel, DecisionTreeClassifier, RandomForestClassifier, RandomForestClassificationModel}
 import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
 import org.apache.spark.ml.feature.ChiSqSelector
 import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
@@ -11,7 +11,7 @@ import org.apache.spark.sql.SparkSession.Builder
 class Sandbox extends BernadsApp {
 
   override def configure(builder: Builder): Builder = {
-    builder.master("local")
+    builder.master("local[*]").config("spark.executor.memory", "15g")
   }
 
   override def run(args: Array[String]): Unit = {
@@ -30,7 +30,11 @@ class Sandbox extends BernadsApp {
       .setFeaturesCol("features")
       .setLabelCol("label")
       .setOutputCol("selectedFeatures")
+
     val result = selector.fit(df).transform(df)
+
+    val splits = result.randomSplit(Array(0.8, 0.2))
+    val (trainingData, testData) = (splits(0), splits(1))
 
     val dt = new DecisionTreeClassifier()
       .setLabelCol("label")
@@ -51,8 +55,8 @@ class Sandbox extends BernadsApp {
       .setEstimatorParamMaps(paramGrid)
       .setNumFolds(4)
 
-    val model = cv.fit(result).bestModel.asInstanceOf[DecisionTreeClassificationModel]
-    val predictions = model.transform(result)
+    val model = cv.fit(trainingData).bestModel.asInstanceOf[DecisionTreeClassificationModel]
+    val predictions = model.transform(testData)
 
     println(model.toDebugString)
 
