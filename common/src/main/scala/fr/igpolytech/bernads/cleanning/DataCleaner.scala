@@ -18,12 +18,12 @@ case class DataCleaner(dataFrame: DataFrame) {
     )
   }
 
-  def normalizeStringInputs(inColumns: Array[String], outSuffix: String): DataCleaner = {
+  def normalizeStringInputs(inColumns: Array[String], outSuffix: String, nullPolicy: Map[String, String]): DataCleaner = {
     val stringIndexers = inColumns.map { name =>
       new StringIndexer()
         .setInputCol(name)
         .setOutputCol(s"$name$outSuffix")
-        .setHandleInvalid("keep")
+        .setHandleInvalid(nullPolicy(name))
         .fit(dataFrame)
     }
     val dataIndexed = stringIndexers.foldLeft(dataFrame) { (df, indexer) => indexer.transform(df) }
