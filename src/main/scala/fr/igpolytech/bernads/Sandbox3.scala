@@ -9,7 +9,7 @@ import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
 import org.apache.spark.mllib.evaluation.MulticlassMetrics
 import org.apache.spark.ml.linalg.Vector
 
-class Sandbox2 extends BernadsApp {
+class Sandbox3 extends BernadsApp {
 
   override def configure(builder: Builder): Builder = {
     Logger.getLogger("org").setLevel(Level.OFF)
@@ -38,15 +38,16 @@ class Sandbox2 extends BernadsApp {
     val splits = result.randomSplit(Array(0.8, 0.2))
     val (trainingData, testData) = (splits(0), splits(1))
 
-    val gbt = new RandomForestClassifier()
+    val gbt = new MultilayerPerceptronClassifier()
       .setLabelCol("label")
       .setFeaturesCol("selectedFeatures")
-      .setMaxDepth(10)
-      .setMaxBins(1000)
-      //.setMaxIter(30)
-      .setNumTrees(50)
+      .setLayers(Array[Int](6, 80, 80, 2))
+      .setBlockSize(128)
+      //.setMaxBins(1000)
+      .setMaxIter(100)
+    //.setNumTrees(50)
 
-    //println(gbt.explainParams())
+    println(gbt.explainParams())
 
 
     val evaluator = new MulticlassClassificationEvaluator()
@@ -64,16 +65,16 @@ class Sandbox2 extends BernadsApp {
       .setEstimatorParamMaps(paramGrid)
       .setNumFolds(4)
 
-    val model = cv.fit(trainingData).bestModel.asInstanceOf[RandomForestClassificationModel]
-    val predictions = model.transform(result)
+    val model = cv.fit(trainingData) //.bestModel.asInstanceOf[MultilayerPerceptronClassifier]
+    val predictions = model.transform(testData)
     //println(model.toDebugString)
     //println(model.explainParams())
     val predictionAndLabels = predictions
-      .select("prediction", "label", "probability")
+      .select("prediction", "label")
       .rdd
       .map { row =>
-        val prediction = if (row.getAs[Vector]("probability")(1) > 0.015) 1.0 else 0.0
-        prediction -> row.getAs[Double]("label")
+        //val prediction = if (row.getAs[Vector]("probability")(1) > 0.025) 1.0 else 0.0
+        row.getAs[Double]("prediction") -> row.getAs[Double]("label")
       }
 
     val metrics = new MulticlassMetrics(predictionAndLabels)

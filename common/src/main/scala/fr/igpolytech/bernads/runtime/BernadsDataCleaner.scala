@@ -6,16 +6,16 @@ import org.apache.spark.sql.functions.udf
 object BernadsDataCleaner {
 
   val STRING_COLUMNS = Array(
-    "osClear",
-    "media",
-    "appOrSite",
-    "interests",
-    "city",
-    "exchange",
-    "publisher",
-    "type",
+    "osClear"
+    //"media",
+    ,"appOrSite"
+    ,"interests"
+    //"city",
+    ,"exchange"
+    ,"publisher"
+    ,"type"
     // "impid",
-    "network"
+    //"network"
   )
 
   def cleaner(cleaner: DataCleaner): DataCleaner = cleaner
@@ -26,6 +26,13 @@ object BernadsDataCleaner {
         os.toUpperCase match {
           case osName if osName.contains("WINDOW") => "WINDOWS"
           case osName => osName
+        }
+    })
+    .cleanInput("type", "type",udf[String, String] { typ =>
+      if (typ == null) "NULL"
+      else
+        typ.toUpperCase match {
+          case typName => typName
         }
     })
     .normalizeStringInputs(STRING_COLUMNS, "Indexed")
