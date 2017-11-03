@@ -9,14 +9,14 @@ object BernadsDataCleaner {
 
   val STRING_COLUMNS = Array(
     "osClear",
-    "media",
-    "appOrSite",
-    "city",
-    "exchange",
-    "publisher",
-    "type",
+    // "media",
+    // "appOrSite",
+    // "city",
+    // "exchange",
+    "publisher"
+    // "type",
     // "impid",
-    "network"
+    // "network"
     // "user"
   )
 
@@ -33,9 +33,9 @@ object BernadsDataCleaner {
     "exchange" -> "keep",
     "publisher" -> "keep",
     "type" -> "keep",
-    // "impid" -> "keep",
-    "network" -> "keep"
-    // "user" -> "keep"
+    "impid" -> "keep",
+    "network" -> "keep",
+    "user" -> "keep"
   )
 
   def cleaner(cleaner: DataCleaner): DataCleaner = cleaner
