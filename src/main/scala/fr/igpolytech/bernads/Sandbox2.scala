@@ -1,13 +1,16 @@
+import java.io.File
+
 import fr.igpolytech.bernads.runtime.{BernadsApp, BernadsDataCleaner}
 import org.apache.log4j.{Level, Logger}
-import org.apache.spark.ml.classification.{GBTClassificationModel, RandomForestClassificationModel, MultilayerPerceptronClassificationModel}
+import org.apache.spark.ml.classification.{GBTClassificationModel, MultilayerPerceptronClassificationModel, RandomForestClassificationModel}
 import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
 import org.apache.spark.sql.SparkSession.Builder
-import org.apache.spark.ml.classification.{GBTClassifier,RandomForestClassifier, MultilayerPerceptronClassifier}
+import org.apache.spark.ml.classification.{GBTClassifier, MultilayerPerceptronClassifier, RandomForestClassifier}
 import org.apache.spark.ml.feature.ChiSqSelector
 import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
 import org.apache.spark.mllib.evaluation.MulticlassMetrics
 import org.apache.spark.ml.linalg.Vector
+import org.apache.spark.sql.DataFrame
 
 class Sandbox2 extends BernadsApp {
 
@@ -67,6 +70,24 @@ class Sandbox2 extends BernadsApp {
 
   def saveModel(pathToBuild: String, pathToSave: String): Unit = {
     generateModel(pathToBuild).save(pathToSave)
+  }
+
+  def saveDfToCsv(df: DataFrame, tsvOutput: String,
+                  sep: String = ",", header: Boolean = false): Unit = {
+    val tmpParquetDir = "Posts.tmp.parquet"
+
+    df.repartition(1).write.
+      format("com.databricks.spark.csv").
+      option("header", header.toString).
+      option("delimiter", sep).
+      save(tmpParquetDir)
+
+    val dir = new File(tmpParquetDir)
+    val tmpTsvFile = tmpParquetDir + File.separatorChar + "part-00000"
+    (new File(tmpTsvFile)).renameTo(new File(tsvOutput))
+
+    dir.listFiles.foreach( f => f.delete )
+    dir.delete
   }
 
   override def run(args: Array[String]): Unit = {

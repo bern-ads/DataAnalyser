@@ -14,7 +14,8 @@ val sparkVersion = "2.2.0"
 val commonLibs = Seq(
   "org.apache.spark" %% "spark-core" % sparkVersion,
   "org.apache.spark" %% "spark-sql" % sparkVersion,
-  "org.apache.spark" %% "spark-mllib" % sparkVersion
+  "org.apache.spark" %% "spark-mllib" % sparkVersion,
+  "com.databricks" %% "spark-csv_2.10" % "1.5.0"
 )
 
 lazy val root = (project in file("."))
