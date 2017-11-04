@@ -17,11 +17,11 @@ class Sandbox2 extends BernadsApp {
     builder.master("local[*]").config("spark.executor.memory", "15g")
   }
 
-  override def run(args: Array[String]): Unit = {
+  def generateModel(pathToBuild: String): RandomForestClassificationModel = {
     import fr.igpolytech.bernads.cleanning.Implicit._
 
     val df = {
-      readJson(args(0)).clean {
+      readJson(pathToBuild).clean {
         BernadsDataCleaner.cleaner
       }
         .select("labelInt", "features")
@@ -38,15 +38,13 @@ class Sandbox2 extends BernadsApp {
     val splits = result.randomSplit(Array(0.8, 0.2))
     val (trainingData, testData) = (splits(0), splits(1))
 
-    val gbt = new RandomForestClassifier()
+    val rbt = new RandomForestClassifier()
       .setLabelCol("label")
       .setFeaturesCol("selectedFeatures")
       .setMaxDepth(10)
       .setMaxBins(1000)
       //.setMaxIter(30)
       .setNumTrees(50)
-
-    //println(gbt.explainParams())
 
 
     val evaluator = new MulticlassClassificationEvaluator()
@@ -59,12 +57,21 @@ class Sandbox2 extends BernadsApp {
       .build()
 
     val cv = new CrossValidator()
-      .setEstimator(gbt)
+      .setEstimator(rbt)
       .setEvaluator(evaluator)
       .setEstimatorParamMaps(paramGrid)
       .setNumFolds(4)
 
-    val model = cv.fit(trainingData).bestModel.asInstanceOf[RandomForestClassificationModel]
+    cv.fit(trainingData).bestModel.asInstanceOf[RandomForestClassificationModel]
+  }
+
+  def saveModel(pathToBuild: String, pathToSave: String): Unit = {
+    generateModel(pathToBuild).save(pathToSave)
+  }
+
+  override def run(args: Array[String]): Unit = {
+    val model = generateModel(args(0))
+    /*
     val predictions = model.transform(result)
     //println(model.toDebugString)
     //println(model.explainParams())
@@ -78,9 +85,12 @@ class Sandbox2 extends BernadsApp {
 
     val metrics = new MulticlassMetrics(predictionAndLabels)
     println(metrics.confusionMatrix)
-    println(s"precision=${metrics.weightedPrecision}")
+    println(s"accuracy = ${metrics.accuracy}")
+    println(s"precision = ${metrics.weightedPrecision}")
     //println(s"recall=${metrics.weightedRecall}")
     println(s"true positive rate = ${metrics.weightedTruePositiveRate}")
     println(s"false positive rate = ${metrics.weightedFalsePositiveRate}")
+    */
   }
+
 }
