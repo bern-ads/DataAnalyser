@@ -1,85 +1,110 @@
 import fr.igpolytech.bernads.runtime.{BernadsApp, BernadsDataCleaner}
 import org.apache.log4j.{Level, Logger}
-import org.apache.spark.ml.classification.{DecisionTreeClassificationModel, GBTClassificationModel}
+import org.apache.spark.ml.classification._
 import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
-import org.apache.spark.mllib.tree.GradientBoostedTrees
-import org.apache.spark.mllib.tree.configuration.BoostingStrategy
-import org.apache.spark.mllib.tree.model.GradientBoostedTreesModel
-import org.apache.spark.mllib.util.MLUtils
 import org.apache.spark.sql.SparkSession.Builder
-import org.apache.spark.ml.classification.GBTClassifier
 import org.apache.spark.ml.feature.ChiSqSelector
 import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
 import org.apache.spark.mllib.evaluation.MulticlassMetrics
 import org.apache.spark.ml.linalg.Vector
+import org.apache.spark.sql.DataFrame
 
 class Sandbox2 extends BernadsApp {
 
   override def configure(builder: Builder): Builder = {
     Logger.getLogger("org").setLevel(Level.OFF)
     Logger.getLogger("akka").setLevel(Level.OFF)
-    builder.master("local[*]").config("spark.executor.memory", "15g")
+    builder.master("local[3]").config("spark.executor.memory", "15g")
   }
 
   override def run(args: Array[String]): Unit = {
     import fr.igpolytech.bernads.cleanning.Implicit._
 
-    val df = {
+    def balanceDataset(dataset: DataFrame): DataFrame = {
+      import org.apache.spark.sql.functions._
+
+      // Re-balancing (weighting) of records to be used in the logistic loss objective function
+      val numNegatives = dataset.filter(dataset("label") === 0).count
+      val datasetSize = dataset.count
+      val balancingRatio = (datasetSize - numNegatives).toDouble / datasetSize
+
+      val calculateWeights = udf { d: Double =>
+        if (d == 0.0) {
+          1 * balancingRatio
+        }
+        else {
+          (1 * (1.0 - balancingRatio))
+        }
+      }
+
+      val weightedDataset = dataset.withColumn("classWeightCol", calculateWeights(dataset("labelInt")))
+      weightedDataset
+    }
+
+    val df = balanceDataset({
       readJson(args(0)).clean {
         BernadsDataCleaner.cleaner
       }
-        .select("labelInt", "features")
-        .withColumnRenamed("labelInt", "label")
-    }
+    })
 
     val selector = new ChiSqSelector()
       .setNumTopFeatures(6)
       .setFeaturesCol("features")
-      .setLabelCol("label")
+      .setLabelCol("labelInt")
       .setOutputCol("selectedFeatures")
 
     val result = selector.fit(df).transform(df)
+
     val splits = result.randomSplit(Array(0.75, 0.25))
     val (trainingData, testData) = (splits(0), splits(1))
 
-    val gbt = new GBTClassifier()
-      .setLabelCol("label")
-      .setFeaturesCol("features")
-      .setMaxDepth(10)
-      .setMaxBins(7696)
-      .setMaxIter(10)
+    val gbt = new LogisticRegression()
+      .setLabelCol("labelInt")
+      .setFeaturesCol("selectedFeatures")
+      .setWeightCol("classWeightCol")
 
     //println(gbt.explainParams())
 
     val evaluator = new MulticlassClassificationEvaluator()
-      .setLabelCol("label")
+      .setLabelCol("labelInt")
       .setPredictionCol("prediction")
-      .setMetricName("weightedRecall")
+      .setMetricName("weightedPrecision")
 
     val paramGrid = new ParamGridBuilder()
-      .addGrid(gbt.maxDepth, Array(1, 5, 10, 20, 30))
-      .addGrid(gbt.maxBins, Array(7696, 14000, 24000))
-      .addGrid(gbt.maxIter, Array(2, 5, 10))
+      .addGrid(gbt.regParam, Array(0.01, 0.15, 0.30, 0.45))
+      .addGrid(gbt.elasticNetParam, Array(0.7, 0.8, 0.9))
+      .addGrid(gbt.maxIter, Array(5, 10, 20))
       .build()
 
     val cv = new CrossValidator()
       .setEstimator(gbt)
       .setEvaluator(evaluator)
       .setEstimatorParamMaps(paramGrid)
-      .setNumFolds(5)
+      .setNumFolds(4)
 
-    val model = cv.fit(trainingData).bestModel.asInstanceOf[GBTClassificationModel]
-    val predictions = model.transform(testData)
-
-    println(model.toDebugString)
+    val model = cv.fit(trainingData).bestModel
+    val predictions = model.transform(result)
+    //println(model.toDebugString)
     //println(model.explainParams())
+    import org.apache.spark.sql.functions._
+    val getp0 = udf((v: org.apache.spark.ml.linalg.Vector) => v(0))
+    val getp1 = udf((v: org.apache.spark.ml.linalg.Vector) => v(1))
+    predictions
+      .withColumn("p0", getp0(predictions("probability")))
+      .withColumn("p1", getp1(predictions("probability")))
+      .select("prediction", "labelInt", "probability", "p0", "p1")
+      .groupBy("prediction", "labelInt")
+      .avg("p0", "p1")
+      .show(100, false)
+
     val predictionAndLabels = predictions
-      .select("prediction", "label", "probability")
+      .select("prediction", "labelInt", "probability")
       .rdd
       .map { row =>
-        val prediction = row.getAs[Double]("prediction")
+        // val prediction = row.getAs[Double]("prediction")
           // if (row.getAs[Vector]("probability")(1) > 0.04) 1.0 else 0.0
-        prediction -> row.getAs[Double]("label")
+        val prediction = if (row.getAs[Vector]("probability")(1) > 0.025) 1.0 else 0.0
+        prediction -> row.getAs[Double]("labelInt")
       }
 
     val metrics = new MulticlassMetrics(predictionAndLabels)

@@ -9,18 +9,24 @@ object BernadsDataCleaner {
 
   val STRING_COLUMNS = Array(
     "osClear",
-    // "media",
-    // "appOrSite",
-    // "city",
-    // "exchange",
-    "publisher"
-    // "type",
+    "media",
+    "appOrSite",
+    "city",
+    "exchange",
+    "publisher",
+    "bidfloor",
+    // "interests",
+    "typeClear",
     // "impid",
-    // "network"
-    // "user"
+    "network",
+    "user"
   )
 
-  val OTHERS_COLUMNS = Array(
+  val STRING_TO_COMPACT = STRING_COLUMNS.diff(Array(
+    "user"
+  ))
+
+  val OTHERS_COLUMNS: Array[String] = Array(
     "interestsClear"
   )
 
@@ -28,11 +34,12 @@ object BernadsDataCleaner {
     "osClear" -> "keep",
     "media" -> "keep",
     "appOrSite" -> "keep",
-    "interestsClear" -> "keep",
+    // "interests" -> "skip",
     "city" -> "keep",
     "exchange" -> "keep",
     "publisher" -> "keep",
-    "type" -> "keep",
+    "bidfloor" -> "skip",
+    "typeClear" -> "skip",
     "impid" -> "keep",
     "network" -> "keep",
     "user" -> "keep"
@@ -41,7 +48,7 @@ object BernadsDataCleaner {
   def cleaner(cleaner: DataCleaner): DataCleaner = cleaner
     .normalizeLabel("label", "labelInt")
     .cleanInput("os", "osClear", udf[String, String] { os =>
-      if (os == null) "NULL"
+      if (os == null) null
       else
         os.toUpperCase match {
           case osName if osName.contains("WINDOW") => "WINDOWS"
@@ -62,7 +69,15 @@ object BernadsDataCleaner {
         }
       Vectors.dense(array)
     })
+    .cleanInput("type", "typeClear",udf[String, String] { typ =>
+      if (typ == null) null
+      else
+        typ.toUpperCase match {
+          case typName => typName
+        }
+    })
     .normalizeStringInputs(STRING_COLUMNS, "Indexed", NULL_POLICY)
-    .compact(STRING_COLUMNS.map { _.concat("Indexed") } ++ OTHERS_COLUMNS, "features")
+    .encodeStringInputs(STRING_COLUMNS.map { _.concat("Indexed") }, "Encoded")
+    .compact(STRING_TO_COMPACT.map { _.concat("IndexedEncoded") } ++ OTHERS_COLUMNS, "features")
 
 }

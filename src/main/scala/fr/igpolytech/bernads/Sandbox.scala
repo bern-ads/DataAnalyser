@@ -11,6 +11,9 @@ import org.apache.log4j.Logger
 import org.apache.log4j.Level
 
 
+import org.apache.spark.sql.{DataFrame}
+
+
 
 class Sandbox extends BernadsApp {
 
@@ -31,8 +34,9 @@ class Sandbox extends BernadsApp {
       .withColumnRenamed("labelInt", "label")
     }
 
+
     val selector = new ChiSqSelector()
-      .setNumTopFeatures(7)
+      .setNumTopFeatures(6)
       .setFeaturesCol("features")
       .setLabelCol("label")
       .setOutputCol("selectedFeatures")
@@ -42,18 +46,22 @@ class Sandbox extends BernadsApp {
     val splits = result.randomSplit(Array(0.8, 0.2))
     val (trainingData, testData) = (splits(0), splits(1))
 
+    val paramGrid = new ParamGridBuilder()
+      .build()
+
     val dt = new DecisionTreeClassifier()
       .setLabelCol("label")
       .setFeaturesCol("selectedFeatures")
-      .setMaxDepth(30)
-      .setMaxBins(19158)
+      .setMaxDepth(15)
+      .setMaxBins(1000)
 
     val evaluator = new MulticlassClassificationEvaluator()
       .setLabelCol("label")
       .setPredictionCol("prediction")
       .setMetricName("weightedRecall")
 
-    val paramGrid = new ParamGridBuilder().build()
+
+    //println(evaluator.explainParams())
 
     val cv = new CrossValidator()
       .setEstimator(dt)
@@ -65,6 +73,7 @@ class Sandbox extends BernadsApp {
     val predictions = model.transform(testData)
 
     println(model.toDebugString)
+    //println(model.explainParams())
 
     val predictionAndLabels = predictions
       .select("prediction", "label")
@@ -76,9 +85,9 @@ class Sandbox extends BernadsApp {
     val metrics = new MulticlassMetrics(predictionAndLabels)
     println(metrics.confusionMatrix)
     println(s"precision=${metrics.weightedPrecision}")
-    println(s"recall=${metrics.weightedRecall}")
-    println(s"tp=${metrics.weightedTruePositiveRate}")
-    println(s"fp=${metrics.weightedFalsePositiveRate}")
+    //println(s"recall=${metrics.weightedRecall}")
+    println(s"true positive rate = ${metrics.weightedTruePositiveRate}")
+    println(s"false positive rate = ${metrics.weightedFalsePositiveRate}")
   }
 
 }
