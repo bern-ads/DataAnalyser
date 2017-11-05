@@ -14,10 +14,25 @@ val sparkVersion = "2.2.0"
 val commonLibs = Seq(
   "org.apache.spark" %% "spark-core" % sparkVersion,
   "org.apache.spark" %% "spark-sql" % sparkVersion,
-  "org.apache.spark" %% "spark-mllib" % sparkVersion
+  "org.apache.spark" %% "spark-mllib" % sparkVersion,
+  "com.databricks" %% "spark-csv" % "1.5.0"
 )
 
 lazy val root = (project in file("."))
+  .aggregate(common)
+  .dependsOn(common)
+  .settings(
+    libraryDependencies ++= commonLibs
+  )
+
+lazy val model = project
+  .aggregate(common)
+  .dependsOn(common)
+  .settings(
+    libraryDependencies ++= commonLibs
+  )
+
+lazy val oracle = project
   .aggregate(common)
   .dependsOn(common)
   .settings(

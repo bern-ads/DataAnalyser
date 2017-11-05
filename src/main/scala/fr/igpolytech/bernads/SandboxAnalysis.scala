@@ -5,7 +5,7 @@ import org.apache.log4j.{Level, Logger}
 import org.apache.spark.sql.SparkSession.Builder
 import org.apache.spark.sql.functions.desc
 
-class SandboxAnalysis extends BernadsApp {
+class SandboxAnalysis(dataPath: String) extends BernadsApp {
 
   override def configure(builder: Builder): Builder = {
     Logger.getLogger("org").setLevel(Level.OFF)
@@ -13,8 +13,8 @@ class SandboxAnalysis extends BernadsApp {
     builder.master("local[*]").config("spark.executor.memory", "15g")
   }
 
-  override def run(args: Array[String]): Unit = {
-    val df = readJson(args(0))
+  override def run(): Unit = {
+    val df = readJson(dataPath)
 
     df.where(df("appOrSite").isNull).groupBy("label", "appOrSite").count().orderBy(desc("count")).show(500, false)
     df.where(df("bidfloor").isNull).groupBy("label", "bidfloor").count().orderBy(desc("count")).show(500, false)
