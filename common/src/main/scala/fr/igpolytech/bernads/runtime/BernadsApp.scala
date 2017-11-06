@@ -1,5 +1,7 @@
 package fr.igpolytech.bernads.runtime
 
+import org.apache.spark.ml.linalg.Vector
+import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 /**
@@ -23,6 +25,8 @@ trait BernadsApp {
   def readJson(path: String): DataFrame = {
     sparkSession.read.json(path)
   }
+
+  def binarize = udf((probability: Vector) => if (probability(1) > 0.01975) 1.0 else 0.0)
 
   /**
     * Run the Spark application.

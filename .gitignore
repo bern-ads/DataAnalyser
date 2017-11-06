@@ -20,5 +20,9 @@ project/plugins/project/
 .idea
 out
 
+# Project
+bernads.spark.model
+bernads.result.csv
+
 # Mac
 .DS_Store

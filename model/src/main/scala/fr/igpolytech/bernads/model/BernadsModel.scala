@@ -6,66 +6,66 @@ import fr.igpolytech.bernads.cleanning.Implicit._
 import fr.igpolytech.bernads.runtime.Implicit._
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.ml.classification.{RandomForestClassificationModel, RandomForestClassifier}
-import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
 import org.apache.spark.ml.feature.ChiSqSelector
-import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
 import org.apache.spark.ml.util.MLWritable
 import org.apache.spark.mllib.evaluation.MulticlassMetrics
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.sql.SparkSession.Builder
 import org.apache.spark.ml.linalg.Vector
+import org.apache.spark.sql.functions.udf
+
+import scala.util.Random
 
 class BernadsModel(dataPath: String, modelPath: String) extends BernadsApp {
 
   implicit val cleaner: DataCleaner = new ModelDataCleaner
-  var result: DataFrame = _
+  var result: Array[Dataset[Row]] = _
 
+  /**
+    * Configure the Spark context with given SessionBuilder.
+    */
   override def configure(builder: Builder): Builder = {
     Logger.getLogger("org").setLevel(Level.OFF)
     Logger.getLogger("akka").setLevel(Level.OFF)
     builder.master("local[3]").config("spark.executor.memory", "15g")
   }
 
+  /**
+    * Run the Spark application.
+    */
   override def run(): Unit = {
     readJson(dataPath) ~> cleanDataFrame ~> createModel ~> evaluateModel ~> saveModel
   }
 
   def createModel(dataFrame: DataFrame): RandomForestClassificationModel = {
+    val udfRandGen = udf((label: Double) => if (label == 1.0) new Random().nextInt(32) else -1)
+    val finalData = dataFrame
+      .withColumn("randIndex", udfRandGen(dataFrame("label")))
+      .filter("randIndex < 1")
+      .drop("randIndex")
+
     val selector = new ChiSqSelector()
       .setNumTopFeatures(6)
       .setFeaturesCol("features")
       .setLabelCol("label")
       .setOutputCol("selectedFeatures")
 
-    result = selector.fit(dataFrame).transform(dataFrame)
+    val selected = selector.fit(finalData).transform(dataFrame)
+    result = selected.randomSplit(Array(0.75, 0.25), seed = 1234)
+    val trainingData = result(0)
 
     val rfc = new RandomForestClassifier()
       .setLabelCol("label")
       .setFeaturesCol("selectedFeatures")
       .setMaxDepth(30)
-      .setMaxBins(1116)
-      .setNumTrees(50)
+      .setMaxBins(7696)
+      .setNumTrees(55)
 
-    val evaluator = new MulticlassClassificationEvaluator()
-      .setLabelCol("label")
-      .setPredictionCol("prediction")
-      .setMetricName("weightedRecall")
-
-    val paramGrid = new ParamGridBuilder()
-      // .addGrid(rfc.numTrees, Array(50, 55, 60))
-      .build()
-
-    val cv = new CrossValidator()
-      .setEstimator(rfc)
-      .setEvaluator(evaluator)
-      .setEstimatorParamMaps(paramGrid)
-      .setNumFolds(5)
-
-    cv.fit(result).bestModel.asInstanceOf[RandomForestClassificationModel]
+    rfc.fit(trainingData)
   }
 
   def evaluateModel(model: RandomForestClassificationModel): RandomForestClassificationModel = {
-    val predictions = model.transform(result)
+    val predictions = model.transform(result(1))
 
     import org.apache.spark.sql.functions._
     val getp0 = udf((v: org.apache.spark.ml.linalg.Vector) => v(0))
@@ -96,10 +96,10 @@ class BernadsModel(dataPath: String, modelPath: String) extends BernadsApp {
 
     val predictionAndLabels = predictions
       .select("prediction", "label", "probability")
+      .withColumn("predicted", binarize(predictions("probability")))
       .rdd
       .map { row =>
-        val prediction = if (row.getAs[Vector]("probability")(1) > 0.025) 1.0 else 0.0
-        prediction -> row.getAs[Double]("label")
+        row.getAs[Double]("predicted") -> row.getAs[Double]("label")
       }
 
     val metrics = new MulticlassMetrics(predictionAndLabels)
@@ -113,7 +113,7 @@ class BernadsModel(dataPath: String, modelPath: String) extends BernadsApp {
   }
 
   def saveModel(model: MLWritable): Unit = {
-    model.save(modelPath)
+    model.write.overwrite().save(modelPath)
   }
 
 }
