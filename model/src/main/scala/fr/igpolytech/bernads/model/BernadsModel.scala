@@ -27,7 +27,7 @@ class BernadsModel(dataPath: String, modelPath: String) extends BernadsApp {
   override def configure(builder: Builder): Builder = {
     Logger.getLogger("org").setLevel(Level.OFF)
     Logger.getLogger("akka").setLevel(Level.OFF)
-    builder.master("local[3]").config("spark.executor.memory", "15g")
+    builder.master("local[*]").config("spark.executor.memory", "15g")
   }
 
   /**
@@ -49,6 +49,8 @@ class BernadsModel(dataPath: String, modelPath: String) extends BernadsApp {
       .setFeaturesCol("features")
       .setLabelCol("label")
       .setOutputCol("selectedFeatures")
+
+      selector.write.overwrite().save("/home/yves/Bureau/temp/DataAnalyser/bernards.spark.selector")
 
     val selected = selector.fit(finalData).transform(dataFrame)
     result = selected.randomSplit(Array(0.75, 0.25), seed = 1234)

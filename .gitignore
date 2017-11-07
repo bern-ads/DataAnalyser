@@ -23,6 +23,7 @@ out
 # Project
 bernads.spark.model
 bernads.result.csv
+bernards.spark.selector
 
 # Mac
 .DS_Store
