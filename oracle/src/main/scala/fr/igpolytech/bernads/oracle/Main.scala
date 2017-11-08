@@ -8,7 +8,7 @@ object Main {
 
   def main(args: Array[String]): Unit = {
     if (args.length <= 1) {
-      throw new IllegalArgumentException("The model takes at least three parameters: the path to the unlabeled json data file, the path to the selector, and the path to the model.")
+      throw new IllegalArgumentException("The model takes at least three parameters: the path to the unlabeled json data file, the path to the selector and the path to the model.")
     }
 
     val dataPath = args(0)

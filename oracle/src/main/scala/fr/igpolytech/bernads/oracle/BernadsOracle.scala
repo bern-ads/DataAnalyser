@@ -1,20 +1,25 @@
 package fr.igpolytech.bernads.oracle
 
+import java.io.File
+import java.nio.file.{Files, Paths, StandardCopyOption}
+
 import fr.igpolytech.bernads.cleanning.DataCleaner
 import fr.igpolytech.bernads.runtime.{BernadsApp, BernadsDataCleaner}
 import fr.igpolytech.bernads.cleanning.Implicit._
 import fr.igpolytech.bernads.runtime.Implicit._
+import org.apache.commons.io.FileUtils
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.ml.classification.RandomForestClassificationModel
-import org.apache.spark.ml.feature.ChiSqSelector
-import org.apache.spark.ml.linalg.Vector
+
+import org.apache.spark.ml.feature.ChiSqSelectorModel
+import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 class BernadsOracle(dataPath: String, selectorPath: String, modelPath: String, resultPath: String) extends BernadsApp {
 
   implicit val cleaner: DataCleaner = new BernadsDataCleaner
+  implicit lazy val selector: ChiSqSelectorModel = ChiSqSelectorModel.load(selectorPath)
   implicit lazy val model: RandomForestClassificationModel = RandomForestClassificationModel.load(modelPath)
-  implicit val selector : ChiSqSelector = ChiSqSelector.load(selectorPath)
   /**
     * Configure the Spark context with given SessionBuilder.
     */
@@ -28,47 +33,57 @@ class BernadsOracle(dataPath: String, selectorPath: String, modelPath: String, r
     * Run the Spark application.
     */
   override def run(): Unit = {
-    readJson(dataPath) ~> cleanDataFrame ~> applyModel ~> saveResult
+    readJson(dataPath) ~> cleanDataFrame ~> applySelection ~> applyModel ~> saveResult
   }
 
   def applyModel(dataFrame: DataFrame)(implicit model: RandomForestClassificationModel): DataFrame = {
-    // selector.
+    val toBool = udf((prediction: Double) => if (prediction == 0.0) false else true)
     val predictions = model.transform(dataFrame)
-    predictions.withColumn("predicted", binarize(predictions("probability")))
+    val finalPredictions = predictions.withColumn("predicted", binarize(predictions("probability")))
+    finalPredictions.withColumn("predictedBool", toBool(finalPredictions("predicted")))
+  }
+
+  def applySelection(dataFrame: DataFrame)(implicit selector: ChiSqSelectorModel): DataFrame = {
+    selector.transform(dataFrame)
   }
 
   def saveResult(dataFrame: DataFrame): Unit = {
+    val tmpDir = "result.tmp"
+
     dataFrame
-      .select("predicted", dataFrame.schema.fieldNames: _*) // Add the predicted field in first col
+      .select("predictedBool", dataFrame.select(
+        "appOrSite",
+        "bidfloor",
+        "city",
+        "exchange",
+        "impid",
+        "interests",
+        "label",
+        "media",
+        "network",
+        "os",
+        "publisher",
+        "timestamp",
+        "type",
+        "user"
+      ).schema.fieldNames: _*) // Add the predicted field in first col
+      .coalesce(1)
       .write
       .option("header", "true")
       .option("delimiter", ",")
-      .csv(resultPath)
 
-    /* Travail de théo
-    def write(filePath: String)(dataFrame: DataFrame): DataFrame = {
-    dataFrame
-      .coalesce(1) // Merge all partitions to write just one csv file
-      .write
-      .mode("overwrite")
-      .format("com.databricks.spark.csv")
-      .option("header", value = true)
-      .option("delimiter", ",")
-      .save("tmp")
+      .csv(tmpDir)
 
-    // Move the real csv file inside `tmp` to the app's root
-    val tmpDirectory = new File("tmp")
-    if (tmpDirectory.exists && tmpDirectory.isDirectory) {
-      val tmpFiles = tmpDirectory.listFiles.filter(_.isFile).toList.filter(_.getName.endsWith(".csv"))
-      if (tmpFiles.nonEmpty) {
-        val csvTmpPath = tmpFiles.head.toPath
-        val finalPath = new File(filePath).toPath
-        Files.move(csvTmpPath, finalPath, StandardCopyOption.REPLACE_EXISTING)
-      }
+    val tmpDirectory = new File(tmpDir)
+    val tmpFiles = tmpDirectory.listFiles.filter(_.isFile).filter(_.getName.endsWith(".csv"))
+    if (tmpFiles.nonEmpty) {
+      Files.move(
+        tmpFiles.head.toPath,
+        Paths.get(resultPath),
+        StandardCopyOption.REPLACE_EXISTING
+      )
+      FileUtils.deleteDirectory(tmpDirectory)
     }
-
-    dataFrame
-     */
   }
 
 }
