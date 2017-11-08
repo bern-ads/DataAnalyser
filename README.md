@@ -1,6 +1,6 @@
 # DataAnalyser
 
-This project use Scala (with sbt), Spark and MLib to predict customers clicks on advertising.
+This project use Scala (with sbt), Spark and MLlib to predict customers clicks on advertising.
 
 ## Files structure
 
