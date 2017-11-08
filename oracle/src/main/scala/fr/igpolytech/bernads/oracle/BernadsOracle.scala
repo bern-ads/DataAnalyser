@@ -10,7 +10,6 @@ import fr.igpolytech.bernads.runtime.Implicit._
 import org.apache.commons.io.FileUtils
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.ml.classification.RandomForestClassificationModel
-
 import org.apache.spark.ml.feature.ChiSqSelectorModel
 import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.{DataFrame, SparkSession}
@@ -20,6 +19,7 @@ class BernadsOracle(dataPath: String, selectorPath: String, modelPath: String, r
   implicit val cleaner: DataCleaner = new BernadsDataCleaner
   implicit lazy val selector: ChiSqSelectorModel = ChiSqSelectorModel.load(selectorPath)
   implicit lazy val model: RandomForestClassificationModel = RandomForestClassificationModel.load(modelPath)
+
   /**
     * Configure the Spark context with given SessionBuilder.
     */
@@ -71,7 +71,6 @@ class BernadsOracle(dataPath: String, selectorPath: String, modelPath: String, r
       .write
       .option("header", "true")
       .option("delimiter", ",")
-
       .csv(tmpDir)
 
     val tmpDirectory = new File(tmpDir)
