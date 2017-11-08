@@ -39,9 +39,9 @@ class BernadsOracle(dataPath: String, selectorPath: String, modelPath: String, r
   def applyModel(dataFrame: DataFrame)(implicit model: RandomForestClassificationModel): DataFrame = {
     val timestamp: Long = System.currentTimeMillis()/1000
     println("start apply model "+ timestamp)
-    val splitedDataFrame = dataFrame.randomSplit(Array(0.90,0.10))
+    //val splitedDataFrame = dataFrame.randomSplit(Array(0.90,0.10))
     val toBool = udf((prediction: Double) => if (prediction == 0.0) false else true)
-    val predictions = model.transform(splitedDataFrame(1))
+    val predictions = model.transform(dataFrame)
     val finalPredictions = predictions.withColumn("predicted", binarize(predictions("probability")))
     val timestamp1: Long = System.currentTimeMillis()/1000
     println("end apply model "+timestamp1)
