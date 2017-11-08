@@ -16,7 +16,7 @@ import org.apache.spark.sql.functions.udf
 
 import scala.util.Random
 
-class BernadsModel(dataPath: String, modelPath: String) extends BernadsApp {
+class BernadsModel(dataPath: String, selectorPath: String, modelPath: String) extends BernadsApp {
 
   implicit val cleaner: DataCleaner = new ModelDataCleaner
   var result: Array[Dataset[Row]] = _
@@ -27,7 +27,7 @@ class BernadsModel(dataPath: String, modelPath: String) extends BernadsApp {
   override def configure(builder: Builder): Builder = {
     Logger.getLogger("org").setLevel(Level.OFF)
     Logger.getLogger("akka").setLevel(Level.OFF)
-    builder.master("local[3]").config("spark.executor.memory", "15g")
+    builder.master("local[*]").config("spark.executor.memory", "12g")
   }
 
   /**
@@ -38,7 +38,7 @@ class BernadsModel(dataPath: String, modelPath: String) extends BernadsApp {
   }
 
   def createModel(dataFrame: DataFrame): RandomForestClassificationModel = {
-    val udfRandGen = udf((label: Double) => if (label == 1.0) new Random().nextInt(32) else -1)
+    val udfRandGen = udf((label: Double) => if (label == 1.0) new Random().nextInt(12) else -1)
     val finalData = dataFrame
       .withColumn("randIndex", udfRandGen(dataFrame("label")))
       .filter("randIndex < 1")
@@ -49,8 +49,10 @@ class BernadsModel(dataPath: String, modelPath: String) extends BernadsApp {
       .setFeaturesCol("features")
       .setLabelCol("label")
       .setOutputCol("selectedFeatures")
+      .fit(finalData)
+    selector.write.overwrite().save(selectorPath)
 
-    val selected = selector.fit(finalData).transform(dataFrame)
+    val selected = selector.transform(dataFrame)
     result = selected.randomSplit(Array(0.75, 0.25), seed = 1234)
     val trainingData = result(0)
 

@@ -73,7 +73,7 @@ object BernadsDataCleaner {
     "city" -> "keep",
     "exchange" -> "keep",
     "publisher" -> "keep",
-    "bidfloor" -> "skip",
+    "bidfloor" -> "keep",
     "typeClear" -> "keep",
     "impid" -> "keep",
     "network" -> "keep"

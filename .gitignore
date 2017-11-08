@@ -21,7 +21,6 @@ project/plugins/project/
 out
 
 # Project
-bernads.spark.model
 bernads.result.csv
 
 # Mac

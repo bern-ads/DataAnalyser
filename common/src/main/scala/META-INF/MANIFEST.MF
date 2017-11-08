@@ -1,0 +1,4 @@
+Manifest-Version: 1.0
+Class-Path: /home/yves/Bureau/DataAnalyser/*
+Main-Class: fr.igpolytech.bernads.oracle.Main
+
