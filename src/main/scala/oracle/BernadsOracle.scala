@@ -66,7 +66,6 @@ class BernadsOracle(dataPath: String, selectorPath: String, modelPath: String, r
         "exchange",
         "impid",
         "interests",
-        "label",
         "media",
         "network",
         "os",

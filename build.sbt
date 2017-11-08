@@ -2,7 +2,7 @@ name := "DataAnalyser"
 
 version := "1.0"
 
-scalaVersion := "2.10.5"
+scalaVersion := "2.11.11"
 //logLevel := Level.Warn
 
 resolvers ++= Seq(
@@ -18,27 +18,6 @@ val commonLibs = Seq(
 )
 
 lazy val root = (project in file("."))
-  .aggregate(common)
-  .dependsOn(common)
-  .settings(
-    libraryDependencies ++= commonLibs
-  )
-
-lazy val model = project
-  .aggregate(common)
-  .dependsOn(common)
-  .settings(
-    libraryDependencies ++= commonLibs
-  )
-
-lazy val oracle = project
-  .aggregate(common)
-  .dependsOn(common)
-  .settings(
-    libraryDependencies ++= commonLibs
-  )
-
-lazy val common = project
   .settings(
     libraryDependencies ++= commonLibs
   )
