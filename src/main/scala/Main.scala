@@ -1,5 +1,5 @@
 import fr.igpolytech.bernads._
-import fr.igpolytech.bernads.runtime.BernadsApp
+import fr.igpolytech.bernads.runtyme.BernadsApp
 
 object Main {
 

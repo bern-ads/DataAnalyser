@@ -1,6 +1,6 @@
 package fr.igpolytech.bernads
 
-import fr.igpolytech.bernads.runtime.BernadsApp
+import fr.igpolytech.bernads.runtyme.BernadsApp
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.sql.SparkSession.Builder
 import org.apache.spark.sql.functions.desc
